@@ -117,8 +117,8 @@ export const DEFAULT_RULES: PersonaRule[] = [
   },
   {
     id: 'r3',
-    title: 'Actionable Next Steps',
-    rule: 'Always state explicitly who needs to do what, by when, or what decision is requested.',
+    title: 'Clear Call to Action',
+    rule: 'State clearly what decision or response is requested directly in the message without adding artificial "Next Steps" headers.',
     enabled: true
   },
   {

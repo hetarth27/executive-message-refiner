@@ -71,7 +71,7 @@ CORE EXECUTIVE GUIDELINES:
 3. Ban unnecessary apologies ("sorry for bothering", "sorry for the delay" -> "thank you for your patience").
 4. Eliminate timid hedge words ("just", "maybe", "I think", "sorry if this is dumb").
 5. Structure for scanning: Short paragraphs (1-3 sentences), clean bullet points for action items.
-6. Provide a clear Call to Action (CTA) or explicit timeline.
+6. Provide a direct Call to Action (CTA) or clear timeline. Do NOT add explicit or artificial "Next Steps" headers or sections.
 
 OUTPUT FORMAT:
 Return strictly a valid JSON object matching this TypeScript structure:
@@ -243,17 +243,28 @@ async function callAnthropicAPI(params: LLMRequestParams): Promise<RefinementRes
   return parseJsonResponse(textContent, rawText, params);
 }
 
+function removeNextSteps(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/(?:\r?\n\s*)?(\*{1,2}|_{1,2})?(Action Items\s*(&|and)\s*)?Next Steps(&\s*Delivery)?:?(\*{1,2}|_{1,2})?:?\s*/gi, '\n\n')
+    .replace(/and outline our next steps/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function parseJsonResponse(rawJson: string, rawText: string, params: LLMRequestParams): RefinementResult {
   try {
     // Strip markdown code fences if model enclosed it
     const cleaned = rawJson.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
     const parsed = JSON.parse(cleaned);
 
+    const refinedText = removeNextSteps(parsed.refinedText || rawText);
+
     return {
       id: 'ref_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
       timestamp: Date.now(),
       originalText: rawText,
-      refinedText: parsed.refinedText || rawText,
+      refinedText,
       subjectLine: parsed.subjectLine || undefined,
       audience: params.audience,
       tone: params.tone,
@@ -303,7 +314,7 @@ function generateLocalExecutiveRefinement(params: LLMRequestParams): RefinementR
       summary = 'Framed delay proactively around root causes, revised delivery date (Wednesday), and mitigation steps.';
       refinedText = format === 'chat'
         ? `*Project Update: Migration Timeline*\n\nBLUF: We are adjusting our migration completion target to *next Wednesday* due to an upstream third-party API outage and reduced engineering capacity today.\n\n• *Root Causes:* Third-party API failure + team member on sick leave.\n• *Mitigation:* We are coordinating a patch directly with the vendor today and reallocating review tasks.\n• *Target Delivery:* Next Wednesday by 5:00 PM.\n\nLet me know if you would like a brief 5-minute sync or need me to flag any cross-team dependencies.`
-        : `Hi Sarah,\n\nI am writing to provide an updated timeline and mitigation plan for the migration project.\n\n**Bottom Line:** We are adjusting our completion target from this Friday to **next Wednesday**. \n\n**Key Factors:**\n• **Third-Party API Dependency:** The partner service encountered unexpected downtime this morning, temporarily blocking data ingestion.\n• **Capacity:** A key engineer is out sick today; we have redistributed remaining tasks to ensure continuity.\n\n**Next Steps & Delivery:**\nWe anticipate testing will resume tomorrow morning, with final verification scheduled for Wednesday afternoon. I will send a progress checkpoint on Monday at 12:00 PM.\n\nPlease let me know if you would like to discuss this or if there are leadership dependencies we should align on.\n\nBest regards,\n${userName}${userTitle}`;
+        : `Hi Sarah,\n\nI am writing to provide an updated timeline and mitigation plan for the migration project.\n\n**Bottom Line:** We are adjusting our completion target from this Friday to **next Wednesday**. \n\n**Key Factors:**\n• **Third-Party API Dependency:** The partner service encountered unexpected downtime this morning, temporarily blocking data ingestion.\n• **Capacity:** A key engineer is out sick today; we have redistributed remaining tasks to ensure continuity.\n\nWe anticipate testing will resume tomorrow morning, with final verification scheduled for Wednesday afternoon. I will send a progress checkpoint on Monday at 12:00 PM.\n\nPlease let me know if you would like to discuss this or if there are leadership dependencies we should align on.\n\nBest regards,\n${userName}${userTitle}`;
     } else {
       subjectLine = 'Timeline Update: Project Milestone Adjustment';
       summary = 'Transformed informal delay notice into reassuring, milestone-driven client communication.';
@@ -373,15 +384,15 @@ function generateLocalExecutiveRefinement(params: LLMRequestParams): RefinementR
       refinedText = cleanedDraft;
     } else if (format === 'email') {
       subjectLine = `Action Required: ${firstLine.slice(0, 45).replace(/[^\w\s]/g, '')}...`;
-      refinedText = `Hi,\n\nI am writing to share a brief update and outline our next steps.\n\n${cleanedDraft}\n\n**Action Items & Next Steps:**\n• Please review and confirm your alignment by end of day tomorrow.\n• Let me know if you have any questions or require additional details.\n\nBest regards,\n${userName}${userTitle}`;
+      refinedText = `Hi,\n\nI am writing to share a brief update.\n\n${cleanedDraft}\n\nPlease review and let me know if you have any questions or require additional details.\n\nBest regards,\n${userName}${userTitle}`;
     } else {
-      refinedText = `${cleanedDraft}\n\n*Next Steps:* Please confirm if this aligns with your timeline, and I will proceed accordingly.`;
+      refinedText = `${cleanedDraft}\n\nPlease confirm if this aligns with your timeline, and I will proceed accordingly.`;
     }
 
-    summary = 'Eliminated filler phrasing, elevated executive tone, and added clear next steps.';
+    summary = 'Eliminated filler phrasing and elevated executive tone with direct, clear phrasing.';
     improvements.push(
       { type: 'grammar', description: 'Corrected capitalization, punctuation, and sentence cadence.', originalSnippet: rawText.slice(0, 30), improvedSnippet: refinedText.slice(0, 35) },
-      { type: 'structure', description: 'Formatted with executive clarity, paragraph spacing, and explicit action items.' },
+      { type: 'structure', description: 'Formatted with executive clarity, paragraph spacing, and concise delivery.' },
       { type: 'tone', description: `Adapted for ${audience} with a ${tone} posture.` }
     );
   }
@@ -397,17 +408,19 @@ function generateLocalExecutiveRefinement(params: LLMRequestParams): RefinementR
       improvements.push({ type: 'structure', description: 'Added 1-line executive TL;DR at the top.' });
     } else if (quickActionPrompt.includes('Actionable Bullets') || quickActionPrompt.includes('bullet points')) {
       if (!refinedText.includes('•')) {
-        refinedText += '\n\n**Summary of Actions:**\n• Immediate review of proposal\n• Final sign-off by COB tomorrow\n• Next status checkpoint on Friday';
+        refinedText += '\n\n**Summary of Actions:**\n• Immediate review of proposal\n• Final sign-off by COB tomorrow\n• Final milestone checkpoint on Friday';
       }
       improvements.push({ type: 'structure', description: 'Extracted key action items into bulleted list.' });
     }
   }
 
+  const finalRefinedText = removeNextSteps(refinedText);
+
   return {
     id: 'ref_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
     timestamp: Date.now(),
     originalText: rawText,
-    refinedText,
+    refinedText: finalRefinedText,
     subjectLine,
     audience,
     tone,
@@ -415,7 +428,7 @@ function generateLocalExecutiveRefinement(params: LLMRequestParams): RefinementR
     executiveSummary: summary,
     improvements,
     wordCountOriginal: countWords(rawText),
-    wordCountRefined: countWords(refinedText),
+    wordCountRefined: countWords(finalRefinedText),
     clarityScore: 96,
     formalityScore: tone === 'friendly' ? 78 : tone === 'executive' ? 95 : 88,
   };
