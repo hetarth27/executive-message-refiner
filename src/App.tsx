@@ -81,7 +81,7 @@ export const App: React.FC = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const handleRefine = async (customPromptMod?: string) => {
+  const handleRefine = async () => {
     if (!rawText.trim()) return;
 
     // Detect recipient from the message text
@@ -94,7 +94,6 @@ export const App: React.FC = () => {
         audience: detectedAudience,
         tone,
         format,
-        quickActionPrompt: customPromptMod,
         settings,
       });
 

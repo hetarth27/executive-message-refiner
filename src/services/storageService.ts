@@ -42,6 +42,7 @@ export function saveSettings(settings: AppSettings): void {
   }
 }
 
+
 export function loadHistory(): RefinementResult[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY);

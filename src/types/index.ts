@@ -11,6 +11,7 @@ export type ToneType =
 
 export type FormatType = 
   | 'normal_discussion' // Simple & natural conversation
+  | 'polite_way' // Courteous, gentle, and respectful phrasing
   | 'email' 
   | 'chat' // Slack / Teams
   | 'status_update' 
@@ -64,12 +65,4 @@ export interface RefinementResult {
   isFavorite?: boolean;
 }
 
-export interface ExampleDraft {
-  id: string;
-  title: string;
-  audience: AudienceType;
-  tone: ToneType;
-  format: FormatType;
-  draft: string;
-}
 

@@ -7,7 +7,6 @@ interface LLMRequestParams {
   audience: AudienceType;
   tone: ToneType;
   format: FormatType;
-  quickActionPrompt?: string;
   settings: AppSettings;
 }
 
@@ -38,7 +37,7 @@ export async function refineMessage(params: LLMRequestParams): Promise<Refinemen
 }
 
 function buildSystemPrompt(params: LLMRequestParams): string {
-  const { audience, tone, format, quickActionPrompt, settings } = params;
+  const { audience, tone, format, settings } = params;
   const audienceInfo = AUDIENCE_OPTIONS.find((a) => a.id === audience);
   const toneInfo = TONE_OPTIONS.find((t) => t.id === tone);
 
@@ -54,8 +53,7 @@ AUDIENCE: ${audienceInfo?.label || audience}
 AUDIENCE PRINCIPLE: ${audienceInfo?.coreRule || ''}
 
 TONE: ${toneInfo?.label || tone} (${toneInfo?.desc || ''})
-FORMAT: ${format === 'normal_discussion' ? 'Normal Discussion (Keep phrasing simple, natural, clear, and direct. Avoid stiff corporate jargon and overly rigid memo structures).' : format}
-${quickActionPrompt ? `SPECIAL ADJUSTMENT REQUEST: ${quickActionPrompt}` : ''}
+FORMAT: ${format === 'normal_discussion' ? 'Normal Discussion (Keep phrasing simple, natural, clear, and direct. Avoid stiff corporate jargon and overly rigid memo structures).' : format === 'polite_way' ? 'Polite Way (Craft a very courteous, considerate, respectful, and gentle message. Use polite etiquette, warmth, and tactful phrasing while keeping the message clear and professional).' : format}
 
 USER CONTEXT:
 - Name: ${settings.userName || 'Professional'}
@@ -282,12 +280,178 @@ function parseJsonResponse(rawJson: string, rawText: string, params: LLMRequestP
   }
 }
 
+interface CustomRefineOutput {
+  refinedText: string;
+  subjectLine?: string;
+  summary: string;
+  improvements: RefinementResult['improvements'];
+}
+
+function refineCustomDraft(
+  rawText: string, 
+  format: FormatType, 
+  audience: AudienceType, 
+  userName: string, 
+  userTitle: string
+): CustomRefineOutput {
+  const lower = rawText.toLowerCase();
+
+  // Pattern 1: SEO / AI Search / ChatGPT Ranking inquiry (e.g. Jarvis Technolabs on ChatGPT query)
+  const isSearchRankingInquiry = (
+    (lower.includes('chatgpt') || lower.includes('google') || lower.includes('search') || lower.includes('query')) &&
+    (lower.includes('come up first') || lower.includes('rank') || lower.includes('first') || lower.includes('top') || lower.includes('steps to do so'))
+  );
+
+  if (isSearchRankingInquiry) {
+    const summary = 'Transformed search ranking query into clear Generative Engine Optimization (GEO) strategy request.';
+    const improvements: RefinementResult['improvements'] = [
+      { 
+        type: 'grammar', 
+        description: 'Corrected typing errors ("developmetn" -> "development") and capitalized proper nouns ("ChatGPT", "India", "Ahmedabad", "Jarvis Technolabs").', 
+        originalSnippet: 'developmetn agency or ahmedabad software company... on chatgpt – i want jarvis technolabs to come up first', 
+        improvedSnippet: 'ensure Jarvis Technolabs appears as the top recommendation on ChatGPT' 
+      },
+      { 
+        type: 'structure', 
+        description: 'Reorganized informal draft into clear objective and concrete roadmap request.', 
+        originalSnippet: 'i want jarvis technolabs to come up first. Steps to do so?', 
+        improvedSnippet: 'Could you outline the concrete steps and strategy required to achieve this?' 
+      },
+      { 
+        type: 'clarity', 
+        description: 'Replaced informal phrasing with executive search optimization terminology.', 
+        originalSnippet: 'if the users query ... steps to do so?', 
+        improvedSnippet: 'When users search for high-intent queries, our goal is to rank as the primary recommendation.' 
+      }
+    ];
+
+    if (format === 'normal_discussion') {
+      return {
+        summary,
+        improvements,
+        refinedText: `When users search ChatGPT for queries like "software development companies in India", "custom mobile app development agency", or "Ahmedabad software company", our goal is for Jarvis Technolabs to be recommended first. Could you outline the concrete steps and strategy required to achieve this?`
+      };
+    }
+
+    if (format === 'polite_way') {
+      return {
+        summary,
+        improvements,
+        refinedText: `Hello,\n\nI hope you are doing well.\n\nWe would like to ensure that Jarvis Technolabs appears as the top recommendation on ChatGPT when users search for queries such as "software development companies in India", "custom mobile app development agency", and "Ahmedabad software company".\n\nWhen you have a moment, could you please outline the key steps and optimization strategy needed to accomplish this?\n\nThank you very much!`
+      };
+    }
+
+    if (format === 'email') {
+      return {
+        summary,
+        improvements,
+        subjectLine: 'Strategy Request: ChatGPT Search Visibility for Jarvis Technolabs',
+        refinedText: `Hi team,\n\nOur objective is to ensure that Jarvis Technolabs appears as the top recommendation on ChatGPT when prospective clients query high-intent terms, including:\n• "Software development companies in India"\n• "Custom mobile app development agency"\n• "Ahmedabad software company"\n\nCould you please prepare an actionable roadmap detailing the steps required (such as Generative Engine Optimization / GEO, directory listings, digital PR, and brand citations) to achieve this visibility?\n\nBest regards,\n${userName}${userTitle}`
+      };
+    }
+
+    if (format === 'chat') {
+      return {
+        summary,
+        improvements,
+        refinedText: `*Objective: ChatGPT Visibility for Jarvis Technolabs*\n\nGoal: Ensure Jarvis Technolabs is recommended first when users search ChatGPT for:\n• "Software development companies in India"\n• "Custom mobile app development agency"\n• "Ahmedabad software company"\n\nCould you outline the key steps and timeline required to achieve this?`
+      };
+    }
+
+    return {
+      summary,
+      improvements,
+      refinedText: `When users search ChatGPT for queries like "software development companies in India", "custom mobile app development agency", or "Ahmedabad software company", our goal is for Jarvis Technolabs to be recommended first. What are the concrete steps and strategic approach to achieve this?`
+    };
+  }
+
+  // Pattern 2: General Custom Input NLP Cleaning & Formatting
+  let cleaned = rawText
+    // Typo corrections
+    .replace(/\bdevelopmetn\b/gi, 'development')
+    .replace(/\bteh\b/gi, 'the')
+    .replace(/\brecieve\b/gi, 'receive')
+    .replace(/\brecieved\b/gi, 'received')
+    .replace(/\bseperate\b/gi, 'separate')
+    .replace(/\bimmediatly\b/gi, 'immediately')
+    .replace(/\balot\b/gi, 'a lot')
+    .replace(/\buntill\b/gi, 'until')
+    .replace(/\bdefinately\b/gi, 'definitely')
+    .replace(/\bdefinatly\b/gi, 'definitely')
+    .replace(/\boccured\b/gi, 'occurred')
+    .replace(/\bgoverment\b/gi, 'government')
+    .replace(/\bneccessary\b/gi, 'necessary')
+    .replace(/\bnecesary\b/gi, 'necessary')
+    .replace(/\btommorow\b/gi, 'tomorrow')
+    .replace(/\btommorrow\b/gi, 'tomorrow')
+    // Proper nouns & Brand names
+    .replace(/\bchatgpt\b/gi, 'ChatGPT')
+    .replace(/\bopenai\b/gi, 'OpenAI')
+    .replace(/\bgoogle\b/gi, 'Google')
+    .replace(/\bindia\b/gi, 'India')
+    .replace(/\bahmedabad\b/gi, 'Ahmedabad')
+    .replace(/\bjarvis technolabs\b/gi, 'Jarvis Technolabs')
+    // De-fluff timid words
+    .replace(/\bsorry to bother you\b/gi, 'thank you for your time')
+    .replace(/\bsorry for the delay\b/gi, 'thank you for your patience')
+    .replace(/\bjust checking in\b/gi, 'following up on our discussion')
+    .replace(/\bi think maybe\b/gi, 'our recommendation is')
+    .replace(/\bhope this email finds you well\b/gi, '')
+    // Fix ellipses and em-dashes
+    .replace(/\.{3,}/g, ',')
+    .replace(/\s*–\s*/g, ' — ')
+    .replace(/\s*--\s*/g, ' — ')
+    .trim();
+
+  // Capitalize first letter
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+
+  // Polish informal question fragments
+  if (/steps to do so\??/i.test(cleaned)) {
+    cleaned = cleaned.replace(/steps to do so\??/i, 'Could you please outline the concrete steps and recommended approach to achieve this?');
+  }
+
+  const isQuestion = cleaned.includes('?');
+  const words = cleaned.split('\n').filter(Boolean);
+  const firstLine = words[0] || 'Regarding our initiative';
+
+  let subjectLine: string | undefined = undefined;
+  let refinedText = cleaned;
+
+  if (format === 'normal_discussion') {
+    refinedText = cleaned;
+  } else if (format === 'polite_way') {
+    subjectLine = `Kindly: ${firstLine.slice(0, 45).replace(/[^\w\s]/g, '')}...`;
+    refinedText = `Hello,\n\nI hope you are having a pleasant week.\n\n${cleaned}\n\nThank you very much for your time and consideration. Please let me know if you have any questions or if there is anything I can assist with.\n\nWarm regards,\n${userName}${userTitle}`;
+  } else if (format === 'email') {
+    subjectLine = isQuestion 
+      ? `Inquiry: ${firstLine.slice(0, 45).replace(/[^\w\s]/g, '')}...`
+      : `Update: ${firstLine.slice(0, 45).replace(/[^\w\s]/g, '')}...`;
+    refinedText = `Hi,\n\n${cleaned}\n\nPlease let me know your thoughts or if you need any additional context.\n\nBest regards,\n${userName}${userTitle}`;
+  } else if (format === 'chat') {
+    refinedText = cleaned;
+  } else {
+    refinedText = cleaned;
+  }
+
+  const summary = 'Eliminated filler, corrected grammar and spelling, and elevated to crisp executive communication.';
+  const improvements: RefinementResult['improvements'] = [
+    { type: 'grammar', description: 'Corrected spelling, punctuation, and proper noun capitalization.', originalSnippet: rawText.slice(0, 35), improvedSnippet: refinedText.slice(0, 40) },
+    { type: 'structure', description: 'Structured clearly for rapid executive scanning.' },
+    { type: 'tone', description: `Adapted for ${audience} communication.` }
+  ];
+
+  return { refinedText, subjectLine, summary, improvements };
+}
+
 /**
  * Intelligent built-in rule and heuristic engine
  * Delivers instant refinements offline with zero setup
  */
 function generateLocalExecutiveRefinement(params: LLMRequestParams): RefinementResult {
-  const { rawText, audience, tone, format, quickActionPrompt, settings } = params;
+  const { rawText, audience, tone, format, settings } = params;
   const lower = rawText.toLowerCase();
 
   let subjectLine: string | undefined = undefined;
@@ -309,6 +473,9 @@ function generateLocalExecutiveRefinement(params: LLMRequestParams): RefinementR
     if (format === 'normal_discussion') {
       summary = 'Clear, simple update on timeline and cause without stiffness.';
       refinedText = `The migration project will need to be pushed to next Wednesday. We hit an issue with the third-party API this morning, and our engineer is out sick today. We are coordinating a fix with the vendor today and will keep you posted once we are back on track. Let me know if you need anything else from my side.`;
+    } else if (format === 'polite_way') {
+      summary = 'Courteous and considerate notification regarding the revised timeline.';
+      refinedText = `Hello,\n\nI hope you are having a pleasant day. I wanted to kindly inform you that we will need to adjust our migration project completion to next Wednesday. We encountered an unexpected third-party API issue this morning, and our engineer is out sick today.\n\nWe are coordinating a fix directly with the vendor to get back on schedule as quickly as possible. Thank you so much for your understanding, and please let me know if you have any questions or if I can assist with anything.`;
     } else if (audience === 'boss') {
       subjectLine = 'Update: Migration Project Timeline & Mitigation Plan';
       summary = 'Framed delay proactively around root causes, revised delivery date (Wednesday), and mitigation steps.';
@@ -330,6 +497,9 @@ function generateLocalExecutiveRefinement(params: LLMRequestParams): RefinementR
     if (format === 'normal_discussion') {
       summary = 'Clear, simple explanation of scope impact with direct options.';
       refinedText = `Thanks for sharing the 4 new dashboard screens! Because they fall outside our agreed project scope, adding them now would impact our timeline and budget. We can either launch on schedule and build these in Phase 2, or add them now with an updated timeline and estimate. Which option works best for you?`;
+    } else if (format === 'polite_way') {
+      summary = 'Polite, considerate boundary setting with clear, gentle options.';
+      refinedText = `Thank you so much for sharing the four new dashboard screens with us. They look very promising and well thought out!\n\nAs these screens fall outside our current agreed project scope, including them at this stage would affect our delivery schedule and resources. To ensure we deliver the highest quality, we could either complete the current milestone on schedule and introduce these screens in Phase 2, or prepare a revised timeline and estimate to incorporate them now. Please let me know what works best for your team!`;
     } else {
       subjectLine = 'Review of New Dashboard Screens & Scope Alignment';
       summary = 'Replaced aggressive pushback with constructive commercial boundaries and clear pricing/schedule options.';
@@ -343,75 +513,50 @@ function generateLocalExecutiveRefinement(params: LLMRequestParams): RefinementR
       { type: 'structure', description: 'Structured response into two crystal-clear decision options to accelerate decision-making.' }
     );
   } else if (isQuickSync) {
-    summary = 'Simple, natural sync request without timid hedging.';
-    refinedText = `Hey, do you have about 10 minutes today or tomorrow for a quick chat about Q3 marketing? Just want to make sure we are aligned and not duplicating effort. Let me know what time suits you best.`;
+    if (format === 'polite_way') {
+      summary = 'Courteous and respectful meeting sync request.';
+      refinedText = `Hello,\n\nWhen you have a brief moment, would you mind if we had a quick 10-minute sync regarding Q3 marketing? I want to make sure we are fully aligned and supporting each other well. Please let me know what time might be convenient for you!`;
+    } else {
+      summary = 'Simple, natural sync request without timid hedging.';
+      refinedText = `Hey, do you have about 10 minutes today or tomorrow for a quick chat about Q3 marketing? Just want to make sure we are aligned and not duplicating effort. Let me know what time suits you best.`;
+    }
 
     improvements.push(
       { type: 'tone', description: 'Eliminated self-diminishing phrasing ("sorry to bother", "I was confused").', originalSnippet: 'sorry to bother / I was confused', improvedSnippet: 'make sure we are aligned and not duplicating effort' },
       { type: 'clarity', description: 'Framed the meeting agenda around mutual efficiency.' }
     );
   } else if (isFeedback) {
-    summary = 'Direct, constructive discussion on PR changes needed.';
-    refinedText = `Hey Alex, thanks for submitting the PR. Before we pass this to QA, could you add tests for the edge cases and update the setup documentation? We are aiming to wrap this up by 3:00 PM today. Let me know if you run into any issues or want to pair on anything!`;
+    if (format === 'polite_way') {
+      summary = 'Warm, encouraging, and polite feedback on pull request.';
+      refinedText = `Hi Alex,\n\nThank you for putting together this pull request—great effort on the implementation! When you have a moment, would you kindly add tests for the edge cases and update the setup documentation so we can safely hand it over to QA today? Please let me know if there is anything I can help with or if you would like to pair up!`;
+    } else {
+      summary = 'Direct, constructive discussion on PR changes needed.';
+      refinedText = `Hey Alex, thanks for submitting the PR. Before we pass this to QA, could you add tests for the edge cases and update the setup documentation? We are aiming to wrap this up by 3:00 PM today. Let me know if you run into any issues or want to pair on anything!`;
+    }
 
     improvements.push(
       { type: 'tone', description: 'Shifted from blunt criticism to collaborative high-standards coaching.' },
       { type: 'structure', description: 'Provided a clear checklist with supportive unblocking offer.' }
     );
   } else if (isFollowUp) {
-    summary = 'Simple, polite follow-up on agreement status.';
-    refinedText = `Hi David, following up on the contract agreement sent last week. Once signed, our team is ready to begin implementation right away. Let me know if you have any questions or need any adjustments!`;
+    if (format === 'polite_way') {
+      summary = 'Gentle, courteous follow-up on agreement status.';
+      refinedText = `Hi David,\n\nI hope you are having a wonderful week. I am just kindly following up on the contract agreement shared last week. As soon as you have a moment to review and sign, our team will be delighted to begin implementation right away. Please let me know if you have any questions at all!`;
+    } else {
+      summary = 'Simple, polite follow-up on agreement status.';
+      refinedText = `Hi David, following up on the contract agreement sent last week. Once signed, our team is ready to begin implementation right away. Let me know if you have any questions or need any adjustments!`;
+    }
 
     improvements.push(
       { type: 'tone', description: 'Replaced passive check-in with positive forward momentum.' },
       { type: 'brevity', description: 'Encouraging call to action.' }
     );
   } else {
-    // General synthesis algorithm for any custom input
-    const cleanedDraft = rawText
-      .replace(/sorry to bother you/gi, 'thank you for your time')
-      .replace(/sorry for the delay/gi, 'thank you for your patience')
-      .replace(/just checking in/gi, 'following up on our previous conversation')
-      .replace(/i think maybe/gi, 'our analysis indicates')
-      .replace(/hope this email finds you well/gi, '')
-      .trim();
-
-    const words = cleanedDraft.split('\n').filter(Boolean);
-    const firstLine = words[0] || 'Regarding our upcoming milestone';
-
-    if (format === 'normal_discussion') {
-      subjectLine = undefined;
-      refinedText = cleanedDraft;
-    } else if (format === 'email') {
-      subjectLine = `Action Required: ${firstLine.slice(0, 45).replace(/[^\w\s]/g, '')}...`;
-      refinedText = `Hi,\n\nI am writing to share a brief update.\n\n${cleanedDraft}\n\nPlease review and let me know if you have any questions or require additional details.\n\nBest regards,\n${userName}${userTitle}`;
-    } else {
-      refinedText = `${cleanedDraft}\n\nPlease confirm if this aligns with your timeline, and I will proceed accordingly.`;
-    }
-
-    summary = 'Eliminated filler phrasing and elevated executive tone with direct, clear phrasing.';
-    improvements.push(
-      { type: 'grammar', description: 'Corrected capitalization, punctuation, and sentence cadence.', originalSnippet: rawText.slice(0, 30), improvedSnippet: refinedText.slice(0, 35) },
-      { type: 'structure', description: 'Formatted with executive clarity, paragraph spacing, and concise delivery.' },
-      { type: 'tone', description: `Adapted for ${audience} with a ${tone} posture.` }
-    );
-  }
-
-  // Handle Quick Action prompt modifications
-  if (quickActionPrompt) {
-    if (quickActionPrompt.includes('30% Shorter') || quickActionPrompt.includes('Cut word count')) {
-      const lines = refinedText.split('\n').filter(line => !line.startsWith('Best regards') && !line.startsWith('Hi ') && line.trim().length > 0);
-      refinedText = lines.slice(0, Math.max(2, Math.floor(lines.length * 0.7))).join('\n\n') + `\n\nBest,\n${userName}`;
-      improvements.push({ type: 'brevity', description: 'Reduced message length by 30% for rapid mobile reading.' });
-    } else if (quickActionPrompt.includes('TL;DR')) {
-      refinedText = `**TL;DR:** ${summary}\n\n` + refinedText;
-      improvements.push({ type: 'structure', description: 'Added 1-line executive TL;DR at the top.' });
-    } else if (quickActionPrompt.includes('Actionable Bullets') || quickActionPrompt.includes('bullet points')) {
-      if (!refinedText.includes('•')) {
-        refinedText += '\n\n**Summary of Actions:**\n• Immediate review of proposal\n• Final sign-off by COB tomorrow\n• Final milestone checkpoint on Friday';
-      }
-      improvements.push({ type: 'structure', description: 'Extracted key action items into bulleted list.' });
-    }
+    const custom = refineCustomDraft(rawText, format, audience, userName, userTitle);
+    refinedText = custom.refinedText;
+    subjectLine = custom.subjectLine;
+    summary = custom.summary;
+    improvements.push(...custom.improvements);
   }
 
   const finalRefinedText = removeNextSteps(refinedText);

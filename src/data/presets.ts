@@ -1,4 +1,4 @@
-import { AudienceType, ToneType, FormatType, ExampleDraft, PersonaRule } from '../types';
+import { AudienceType, ToneType, FormatType, PersonaRule } from '../types';
 
 export interface AudienceOption {
   id: AudienceType;
@@ -78,6 +78,7 @@ export interface FormatOption {
 
 export const FORMAT_OPTIONS: FormatOption[] = [
   { id: 'normal_discussion', label: 'Normal Discussion (Simple)', channel: 'Simple Conversation', defaultGreeting: false },
+  { id: 'polite_way', label: 'Polite way', channel: 'Courteous & Respectful', defaultGreeting: true },
   { id: 'email', label: 'Formal Email', channel: 'Email', defaultGreeting: true },
   { id: 'chat', label: 'Slack / Teams DM', channel: 'Instant Message', defaultGreeting: false },
   { id: 'status_update', label: 'Project Status Update', channel: 'Async Update', defaultGreeting: false },
@@ -86,21 +87,6 @@ export const FORMAT_OPTIONS: FormatOption[] = [
   { id: 'follow_up', label: 'Follow-Up / Gentle Nudge', channel: 'Email/Slack', defaultGreeting: false },
 ];
 
-export interface QuickRefineAction {
-  id: string;
-  label: string;
-  promptMod: string;
-  icon: string;
-}
-
-export const QUICK_ACTIONS: QuickRefineAction[] = [
-  { id: 'shorter', label: 'Make 30% Shorter', promptMod: 'Cut word count by 30%, remove non-essential qualifiers, and make it punchier.', icon: 'Minimize2' },
-  { id: 'confident', label: 'Remove Apologies & Boost Confidence', promptMod: 'Eliminate timid phrases like "sorry to bother", "just checking in", "I think", or "I might be wrong". Make it sound authoritative and confident.', icon: 'ShieldCheck' },
-  { id: 'bullets', label: 'Convert to Actionable Bullets', promptMod: 'Structure all key points and next steps into crisp bullet points with owners and due dates.', icon: 'ListCheck' },
-  { id: 'soften', label: 'Soften Tone (More Diplomatic)', promptMod: 'Make the phrasing softer and more empathetic without losing clarity or firmness.', icon: 'HeartHandshake' },
-  { id: 'tldr', label: 'Add 1-Line TL;DR at Top', promptMod: 'Prefix the message with a prominent "TL;DR:" summarizing the entire message in one sentence.', icon: 'Zap' },
-  { id: 'cta', label: 'Sharpen Call to Action (CTA)', promptMod: 'End with a crystal-clear, specific question or call to action that makes it effortless for the reader to respond.', icon: 'CheckCircle2' },
-];
 
 export const DEFAULT_RULES: PersonaRule[] = [
   {
@@ -129,46 +115,4 @@ export const DEFAULT_RULES: PersonaRule[] = [
   }
 ];
 
-export const EXAMPLE_DRAFTS: ExampleDraft[] = [
-  {
-    id: 'delay-to-boss',
-    title: 'Project Delay to Boss',
-    audience: 'boss',
-    tone: 'executive',
-    format: 'email',
-    draft: 'hey Sarah, so the migration project is not going to finish by Friday like we said. the third party api is totally broken and my engineer is out sick today. we might get it done by next Wednesday if everything goes okay. sorry about this delay, let me know if you want to chat.'
-  },
-  {
-    id: 'scope-creep-client',
-    title: 'Pushing Back on Client Scope Creep',
-    audience: 'client',
-    tone: 'diplomatic',
-    format: 'pushback',
-    draft: 'Hi Mark, we saw the 4 new dashboard screens you sent over this morning. That was not in the original contract we signed last month and it will take a lot of extra hours that we didn\'t budget for. We cannot do this for free. If you really want it, you will have to pay more money and it will delay the launch.'
-  },
-  {
-    id: 'slack-meeting-request',
-    title: 'Slack Quick Sync Request',
-    audience: 'peer',
-    tone: 'friendly',
-    format: 'chat',
-    draft: 'hey quick question do you have 10 mins sometime today or tomorrow to talk about the Q3 marketing sync? I was confused about what you said in the email and wanted to make sure we are not duplicating effort.'
-  },
-  {
-    id: 'team-feedback',
-    title: 'Constructive Feedback to Report',
-    audience: 'team',
-    tone: 'diplomatic',
-    format: 'email',
-    draft: 'Hey Alex, I looked at the pull request you put up. There are a bunch of missing tests and the documentation isn\'t updated at all. Also you missed the deadline we agreed on yesterday. Please fix these issues today because QA needs it.'
-  },
-  {
-    id: 'gentle-nudge',
-    title: 'Follow-up on Overdue Client Sign-off',
-    audience: 'client',
-    tone: 'assertive',
-    format: 'follow_up',
-    draft: 'Hi David, just checking in on the contract I sent 5 days ago. We cannot start the implementation until you sign it. Let me know when you can sign.'
-  }
-];
 
